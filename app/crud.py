@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from sqlalchemy import exc
 
 from app.models import *
-from app.password_utils import get_password_hash
+from app.password_utils import get_password_hash, verify_password
 
 # Users
 
@@ -18,8 +18,11 @@ def get_user_by_username(session: Session, username: str):
     return session.exec(select(User).filter(User.username == username)).first()
 
 def authenticate_user(session: Session, email: str, password: str):
-    hashed_password = get_password_hash(password)
-    return session.exec(select(User).filter(User.email == email and User.hashed_password == hashed_password)).first()
+    db_user = session.exec(select(User).where(User.email == email)).first()
+    if db_user != None:
+        if verify_password(plain_password=password, hashed_password=db_user.hashed_password):
+            return db_user
+    return None
 
 def create_user(session: Session, user: UserCreate):
     hashed_password = get_password_hash(user.password)
@@ -54,11 +57,10 @@ def get_friends(session: Session, user_id: int):
                                                       FriendshipRequest.sender_id == user_id or
                                                       FriendshipRequest.accepted == True) 
     results = session.exec(statement)
-    users: list[User] = []
+    users: list[UserRead] = []
     for user, friendship in results:
         if user.id != user_id:
-            users.append(user)
-        print("User:", user, "Friendship:", friendship)
+            users.append(UserRead.from_orm(user))
     return users
     
 def accept_friend_request(session: Session, sender_id: int, reciever_id: int):
@@ -77,8 +79,8 @@ def accept_friend_request(session: Session, sender_id: int, reciever_id: int):
 ## Secrets
 
 def post_secret(session: Session, client_info: ClientInfo,
-                post_data: PostDataCreate, secret: SecretCreate):
-    db_post_data = PostData(owner_id=None, created_at=datetime.now(),
+                post_data: PostDataCreate, secret: SecretCreate, owner_id=None):
+    db_post_data = PostData(owner_id=owner_id, created_at=datetime.now(),
                             **post_data.dict(), **client_info.dict(), type=PostType.Secret)
     session.add(db_post_data)
     session.commit()
@@ -101,7 +103,7 @@ def get_friends_secrets(session: Session, user_id: int, offset: int, limit: int)
     secrets = session.exec(select(Secret)
                             .offset(offset)
                             .limit(limit)).all()
-    result = [SecretRead(**secret.dict(), **secret.post_data.dict()) for secret in secrets if (secret.post_data.owner in friends_ids)]
+    result = [SecretRead(**secret.dict(), **secret.post_data.dict()) for secret in secrets if (secret.post_data.owner_id in friends_ids)]
     return result
 
 ## WYRs

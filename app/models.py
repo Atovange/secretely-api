@@ -71,6 +71,9 @@ class PostData(PostDataBase, ClientInfo, table=True):
     id: int | None = Field(default=None, primary_key=True)
     # uuid: str = Field(unique=True)
     owner_id: int | None = Field(default=None, foreign_key="user.id")
+    
+    owner: User | None = Relationship(back_populates="posts")
+    
     created_at: datetime
     type: PostType
     likes: list["Like"] = Relationship(back_populates="post")
@@ -78,8 +81,6 @@ class PostData(PostDataBase, ClientInfo, table=True):
     
     secret: "Secret" = Relationship(back_populates="post_data")
     wyr: "WYR"= Relationship(back_populates="post_data")
-    
-    owner: User | None = Relationship(back_populates="posts")
     
     
 class SecretBase(SQLModel):

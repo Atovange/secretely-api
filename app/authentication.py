@@ -1,4 +1,5 @@
-from fastapi import HTTPException, status
+from typing import Annotated
+from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -46,3 +47,5 @@ def decode_access_token(token: str):
         print(e)
         raise credentials_exception
     return token_data
+
+AuthToken = Annotated[str, Depends(oauth2_scheme)]
